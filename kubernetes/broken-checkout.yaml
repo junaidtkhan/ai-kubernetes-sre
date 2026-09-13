@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout-service
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout-service
+  template:
+    metadata:
+      labels:
+        app: checkout-service
+    spec:
+      containers:
+        - name: checkout
+          image: postgres:16
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+              echo "Connecting to database..."
+
+              if ! pg_isready -d "$DATABASE_URL" -t 3; then
+                echo "Database connection failed"
+                exit 1
+              fi
+
+              echo "Database connection successful"
+
+              while true; do
+                sleep 3600
+              done
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://postgres:password@wrong-host:5432/orders"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
