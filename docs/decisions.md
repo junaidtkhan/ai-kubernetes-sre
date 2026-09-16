@@ -111,7 +111,7 @@ A more realistic application can be introduced later if it provides additional v
 
 ### Decision
 
-The future SRE agent uses a dedicated `sre-agent` ServiceAccount with a namespace-scoped read-only Role.
+The SRE agent uses a dedicated `sre-agent` ServiceAccount with a namespace-scoped read-only Role.
 
 ### Why
 
@@ -136,6 +136,15 @@ The agent cannot:
 
 This follows the principle of least privilege.
 
+The RBAC boundary was explicitly verified during M1:
+
+| Operation            | Result  |
+| -------------------- | ------- |
+| `get pods`           | Allowed |
+| `get pods/log`       | Allowed |
+| `delete pods`        | Denied  |
+| `create deployments` | Denied  |
+
 ---
 
 ## ADR-006: No Arbitrary kubectl or Shell Access
@@ -154,12 +163,12 @@ execute_kubectl(command)
 
 would effectively give the AI broad access to the Kubernetes environment.
 
-Instead, the agent will receive explicit, narrowly scoped tools such as:
+Instead, the agent receives explicit, narrowly scoped tools such as:
 
 ```text
 get_pods()
-describe_pod()
 get_pod_logs()
+describe_pod()
 get_events()
 get_deployment()
 get_services()
@@ -174,7 +183,7 @@ This makes the agent's capabilities explicit, auditable, and easier to secure.
 
 ### Decision
 
-The Kubernetes tool layer will collect evidence, while the AI layer will interpret that evidence.
+The Kubernetes tool layer collects evidence, while the AI layer interprets that evidence.
 
 ### Why
 
@@ -199,6 +208,8 @@ Diagnosis
 ```
 
 This separation makes the system easier to test and allows the Kubernetes tooling to be reused independently of the AI model.
+
+The tool layer is implemented using the Kubernetes Python client rather than shelling out to `kubectl`.
 
 ---
 
@@ -244,7 +255,7 @@ Modification
 
 ### Decision
 
-M1 and the initial AI implementation will use a single SRE investigation agent.
+M1 and the initial AI implementation use a single SRE investigation agent.
 
 ### Why
 
@@ -268,11 +279,11 @@ Multi-agent architecture should be added because it provides engineering value, 
 
 ### Decision
 
-M1 uses local Kubernetes. GKE, Cloud Logging, and Cloud Monitoring will be introduced in later milestones.
+M1 and M2 use local Kubernetes. GKE, Cloud Logging, and Cloud Monitoring will be introduced in later milestones.
 
 ### Why
 
-Separating local incident simulation from cloud observability keeps the initial project small and inexpensive.
+Separating local incident simulation and AI investigation from cloud infrastructure and observability keeps the initial project small and inexpensive.
 
 The progression is:
 
@@ -297,6 +308,145 @@ Human Approval + Controlled Remediation
 ```
 
 This allows each architectural layer to be validated before adding additional complexity.
+
+---
+
+## ADR-011: Use Explicit Python Tool Functions
+
+### Decision
+
+Implement Kubernetes capabilities as explicit Python functions rather than exposing raw Kubernetes API access to the AI model.
+
+### Why
+
+The AI model should interact with a controlled interface rather than directly constructing Kubernetes API requests.
+
+Each tool has a defined responsibility and input/output boundary:
+
+```text
+AI Agent
+   │
+   ├── get_pods()
+   ├── get_pod_logs()
+   ├── describe_pod()
+   ├── get_events()
+   ├── get_deployment()
+   ├── get_services()
+   └── get_endpoints()
+```
+
+This provides:
+
+* Explicit capabilities
+* Easier testing
+* Easier auditing
+* Smaller attack surface
+* A clean boundary for the future MCP server
+
+The same tool layer can later be exposed through MCP without changing the underlying Kubernetes investigation logic.
+
+---
+
+## ADR-012: Bound AI Investigation Iterations
+
+### Decision
+
+Limit the number of consecutive AI tool-call iterations during an investigation.
+
+The current implementation allows a maximum of 10 investigation iterations.
+
+### Why
+
+An agentic loop should have an explicit execution boundary.
+
+Without a limit, unexpected model behavior could cause the agent to continue requesting tools indefinitely.
+
+The iteration limit provides:
+
+* Predictable execution
+* Protection against runaway tool calls
+* Easier debugging
+* Controlled API usage
+* A clear failure condition
+
+If the limit is reached, the agent stops rather than continuing indefinitely.
+
+---
+
+## ADR-013: Redact Sensitive Configuration Values
+
+### Decision
+
+Sensitive configuration values returned by Kubernetes tools must be redacted before being exposed to the AI model.
+
+### Why
+
+Kubernetes Deployment environment variables may contain credentials, tokens, passwords, or connection strings.
+
+The tool layer therefore redacts values containing sensitive names such as:
+
+```text
+password
+secret
+token
+key
+```
+
+Database connection strings are also handled specially so that credentials are not exposed:
+
+```text
+postgresql://postgres:***@wrong-host:5432/orders
+```
+
+This allows the agent to inspect configuration relevant to diagnosis while reducing unnecessary secret exposure.
+
+---
+
+## ADR-014: Require Evidence-Based Root-Cause Diagnosis
+
+### Decision
+
+The AI agent must distinguish observed evidence, contributing factors, hypotheses, and root-cause conclusions.
+
+### Why
+
+An incident investigation should not treat every unusual configuration value as the root cause.
+
+The agent is instructed to build a causal evidence chain using available observations such as:
+
+* Pod status
+* Container exit state
+* Application logs
+* Kubernetes Events
+* Deployment configuration
+* Service configuration
+* Endpoints
+
+For the deterministic M2 incident, the evidence chain is:
+
+```text
+DATABASE_URL
+      ↓
+wrong-host:5432
+      ↓
+Application logs:
+"wrong-host:5432 - no response"
+      ↓
+PostgreSQL Service:
+postgres:5432
+      ↓
+Healthy PostgreSQL endpoint
+      ↓
+Database connection failure
+      ↓
+Container exits
+      ↓
+BackOff / CrashLoopBackOff
+```
+
+The agent should not label a condition as the root cause unless the available evidence establishes a causal connection.
+
+This reduces unsupported conclusions and makes the generated incident report auditable.
 
 ---
 

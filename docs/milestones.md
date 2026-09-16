@@ -36,7 +36,7 @@ Build a reproducible local Kubernetes environment containing a healthy applicati
 * [x] Inspect application logs
 * [x] Inspect Kubernetes events
 * [x] Inspect Services
-* [x] Inspect EndpointSlices
+* [x] Inspect Endpoints
 * [x] Verify PostgreSQL health
 * [x] Identify root cause
 * [x] Restore healthy application
@@ -60,29 +60,33 @@ Build a reproducible local Kubernetes environment containing a healthy applicati
 
 # M2 — AI SRE Investigation Agent
 
-**Status: Planned**
+**Status: Complete**
 
-Build the first AI-powered investigation agent.
-
-The agent should reproduce the investigation workflow performed manually in M1.
+Build the first AI-powered investigation agent and reproduce the manual investigation workflow from M1.
 
 ### Kubernetes Tools
 
-Implement explicit read-only tools such as:
+Implement explicit read-only tools:
 
 ```text
 get_pods()
-describe_pod()
 get_pod_logs()
+describe_pod()
 get_events()
 get_deployment()
 get_services()
 get_endpoints()
 ```
 
+* [x] Implement Kubernetes client
+* [x] Implement explicit read-only tool functions
+* [x] Return bounded tool output
+* [x] Add Kubernetes tool tests
+* [x] Verify all tools operate through the Kubernetes Python client
+
 ### Agent Workflow
 
-The agent should:
+The agent can:
 
 1. Receive an incident/question
 2. Inspect workload state
@@ -95,28 +99,93 @@ The agent should:
 9. Determine the most likely root cause
 10. Produce an incident report
 
+Implementation status:
+
+* [x] Connect AI model to tool layer
+* [x] Implement tool calling
+* [x] Implement investigation loop
+* [x] Add bounded investigation iterations
+* [x] Add evidence-based reasoning instructions
+* [x] Distinguish observed evidence from assumptions
+* [x] Prevent unsupported root-cause conclusions
+* [x] Produce structured incident reports
+
 ### Security
 
-* [ ] Run investigation using the `sre-agent` identity
-* [ ] Prevent arbitrary shell execution
-* [ ] Prevent arbitrary `kubectl` execution
-* [ ] Verify tools cannot perform mutations
-* [ ] Test unauthorized operations
+* [x] Use Kubernetes client configuration with local kubeconfig support
+* [x] Support future in-cluster ServiceAccount configuration
+* [x] Prevent arbitrary shell execution
+* [x] Prevent arbitrary `kubectl` execution
+* [x] Expose only explicit investigation tools
+* [x] Keep Kubernetes operations read-only
+* [x] Redact sensitive configuration values
+* [x] Bound the agent investigation loop
+* [x] Verify tool layer does not contain mutation operations
+
+### Secret Protection
+
+* [x] Redact password-like environment variables
+* [x] Redact secret/token/key configuration values
+* [x] Redact credentials embedded in `DATABASE_URL`
+* [x] Preserve non-sensitive configuration needed for diagnosis
+
+Example:
+
+```text
+postgresql://postgres:***@wrong-host:5432/orders
+```
 
 ### Output
 
-The agent should produce reports containing:
+The agent produces reports containing:
 
 ```text
 Incident
-Severity
-Affected Resource
+Status
 Root Cause
 Evidence
+Impact
 Recommended Remediation
-Actions Taken
-Confidence
+Action Taken
 ```
+
+The report explicitly states that Kubernetes resources were not modified.
+
+### Testing
+
+* [x] Kubernetes tool tests
+* [x] Test Pod inspection
+* [x] Test Pod log retrieval
+* [x] Test Pod description
+* [x] Test Events retrieval
+* [x] Test Deployment inspection
+* [x] Test Service inspection
+* [x] Test Endpoints inspection
+* [x] Run complete test suite
+
+Current test result:
+
+```text
+7 passed
+```
+
+### M2 Incident Validation
+
+The agent successfully investigated the deliberately broken `checkout-service` incident.
+
+Observed evidence included:
+
+* Checkout Pod restart activity
+* Container failure state
+* Application logs reporting failure to connect to `wrong-host:5432`
+* PostgreSQL Service available as `postgres:5432`
+* Healthy PostgreSQL endpoint
+* Kubernetes BackOff events
+* Invalid `DATABASE_URL` configuration
+
+The resulting diagnosis identified the invalid database hostname as the root cause rather than treating unrelated configuration as the cause.
+
+No Kubernetes resources were modified by the agent.
 
 ---
 
@@ -135,12 +204,15 @@ Expose the Kubernetes investigation tools through an MCP-compatible tool server.
 * [ ] Validate tool outputs
 * [ ] Preserve RBAC security boundary
 * [ ] Test tools independently of the AI agent
+* [ ] Connect the existing investigation agent to MCP tools
 
 ### Security
 
 The MCP layer must not provide arbitrary Kubernetes command execution.
 
 Tools remain explicitly scoped and read-only.
+
+The existing Python tool layer should remain the underlying implementation boundary rather than being replaced with unrestricted Kubernetes access.
 
 ---
 
@@ -157,6 +229,7 @@ Move the environment from local Kubernetes to GKE and introduce cloud observabil
 * [ ] Deploy incident scenario
 * [ ] Configure appropriate IAM
 * [ ] Configure Kubernetes RBAC
+* [ ] Reproduce the incident in GKE
 
 ### Cloud Logging
 
@@ -191,6 +264,7 @@ The agent should investigate signals such as:
 * [ ] Reproducible GCP infrastructure
 * [ ] Document cost controls
 * [ ] Separate development/demo resources from production
+* [ ] Provide cleanup instructions
 
 ---
 
@@ -252,7 +326,8 @@ Combines evidence from the specialized agents and produces a unified diagnosis.
 * [ ] Define delegation rules
 * [ ] Implement orchestration
 * [ ] Correlate evidence
-* [ ] Compare single-agent vs multi-agent performance
+* [ ] Compare single-agent and multi-agent approaches
+* [ ] Document whether multi-agent separation provides measurable value
 
 ---
 
@@ -332,15 +407,18 @@ Prepare the project for public demonstration and portfolio use.
 * [ ] Deployment instructions
 * [ ] Incident walkthrough
 * [ ] Architecture decisions
+* [ ] Milestone documentation
 
 ### Testing
 
-* [ ] Unit tests
-* [ ] Kubernetes tool tests
+* [x] Kubernetes tool tests
 * [ ] RBAC tests
 * [ ] Incident reproduction tests
 * [ ] Failure scenario tests
 * [ ] Security tests
+* [ ] Integration tests
+* [ ] MCP tool tests
+* [ ] GKE integration tests
 
 ### Demo
 
@@ -368,8 +446,6 @@ Recovery verification
 
 ### Portfolio
 
-Create:
-
 * [ ] Architecture diagram
 * [ ] Short demo video
 * [ ] GitHub README
@@ -383,7 +459,7 @@ Create:
 | Milestone | Description                             | Status   |
 | --------- | --------------------------------------- | -------- |
 | M1        | Local Kubernetes Incident Environment   | Complete |
-| M2        | AI SRE Investigation Agent              | Planned  |
+| M2        | AI SRE Investigation Agent              | Complete |
 | M3        | MCP Tool Server                         | Planned  |
 | M4        | GKE + GCP Logs + Metrics                | Planned  |
 | M5        | Multi-Agent Orchestration               | Planned  |
@@ -426,3 +502,5 @@ Production-quality Documentation + Demo
 ```
 
 Each milestone should provide a working system before additional complexity is introduced.
+
+The project deliberately avoids adding future infrastructure before the current milestone has been validated.
