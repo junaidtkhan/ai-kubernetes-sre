@@ -191,28 +191,60 @@ No Kubernetes resources were modified by the agent.
 
 # M3 — MCP Tool Server
 
-**Status: Planned**
+**Status: Completed**
 
 Expose the Kubernetes investigation tools through an MCP-compatible tool server.
 
 ### Goals
 
-* [ ] Create MCP server
-* [ ] Expose Kubernetes read-only tools
-* [ ] Define tool schemas
-* [ ] Validate tool inputs
-* [ ] Validate tool outputs
-* [ ] Preserve RBAC security boundary
-* [ ] Test tools independently of the AI agent
-* [ ] Connect the existing investigation agent to MCP tools
+* [x] Create MCP server
+* [x] Expose Kubernetes read-only tools
+* [x] Define tool schemas
+* [x] Validate tool inputs
+* [x] Validate and bound tool outputs
+* [x] Preserve RBAC security boundary
+* [x] Test tools independently of the AI agent
+* [x] Connect the existing investigation agent to MCP tools
+
+### Implementation
+
+* Implemented an MCP server using the Python MCP SDK.
+* Exposed seven explicitly defined read-only Kubernetes tools.
+* Reused the existing `agent/tools.py` implementation.
+* Added strict input validation for namespaces, resource names,
+  log limits, and boolean parameters.
+* Bounded list responses and log output to control context size.
+* Added truncation metadata so the agent knows when evidence is incomplete.
+* Preserved sensitive configuration redaction.
+* Connected the agent through an MCP client using stdio transport.
+* Dynamically discovered MCP tools rather than maintaining a separate
+  hardcoded Kubernetes tool implementation.
+* Kept the agent restricted through Kubernetes RBAC.
 
 ### Security
 
-The MCP layer must not provide arbitrary Kubernetes command execution.
+The MCP layer does not provide arbitrary Kubernetes command execution.
 
 Tools remain explicitly scoped and read-only.
 
-The existing Python tool layer should remain the underlying implementation boundary rather than being replaced with unrestricted Kubernetes access.
+The Kubernetes RBAC boundary prevents destructive operations,
+including deleting pods and modifying deployments.
+
+The agent can investigate incidents but cannot automatically
+modify Kubernetes resources.
+
+### Testing and Validation
+
+* [x] MCP tool discovery and schema validation
+* [x] Invalid input rejection
+* [x] Tool delegation and error handling
+* [x] Sensitive configuration redaction
+* [x] Output truncation tests
+* [x] Agent integration with MCP
+* [x] End-to-end CrashLoopBackOff investigation
+* [x] Verification that the agent does not modify resources
+
+**Test result:** 29 tests passed.
 
 ---
 

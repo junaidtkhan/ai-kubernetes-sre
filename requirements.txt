@@ -1,3 +1,5 @@
 kubernetes
 openai
 pytest
+mcp==2.3.0
+python-dotenv
