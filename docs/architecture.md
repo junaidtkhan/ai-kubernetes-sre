@@ -653,3 +653,54 @@ Future capabilities may include:
 * Human-approved remediation
 
 These capabilities are intentionally outside the scope of M2.
+
+
+---
+
+# M3: MCP Tool Server Architecture
+
+M3 introduces the Model Context Protocol (MCP) as the communication
+layer between the AI investigation agent and Kubernetes tools.
+
+The MCP server does not replace the existing Kubernetes tool layer.
+It exposes the existing functions through a standardized tool interface.
+
+## Architecture
+
+```text
+                         User
+                           │
+                           ▼
+                    AI SRE Agent
+                           │
+                           ▼
+                       MCP Client
+                           │
+                    stdio transport
+                           │
+                           ▼
+                       MCP Server
+                           │
+                    Tool Discovery
+                    and Invocation
+                           │
+                           ▼
+                  Existing Python Tools
+                       agent/tools.py
+                           │
+                           ▼
+                Kubernetes Python Client
+                           │
+                           ▼
+                    Kubernetes API
+                           │
+                           ▼
+                    Kubernetes RBAC
+                           │
+                    ┌──────┴──────┐
+                    │             │
+                  Allow         Deny
+                    │             │
+                    ▼             ▼
+              Read-only       Mutations
+              inspection      rejected

@@ -450,6 +450,64 @@ This reduces unsupported conclusions and makes the generated incident report aud
 
 ---
 
+## ADR-015: Use MCP as the Tool Communication Layer
+
+### Decision
+
+Use the Model Context Protocol (MCP) to expose Kubernetes investigation
+tools to the AI agent.
+
+The MCP server acts as a communication layer between the AI agent
+and the existing Python Kubernetes tool implementation.
+
+The existing `agent/tools.py` functions remain responsible for
+interacting with the Kubernetes Python client.
+
+MCP uses stdio transport for communication between the agent and
+the MCP server.
+
+### Why
+
+MCP provides a standardized interface for tool discovery and invocation.
+
+Instead of maintaining a separate tool definition and execution
+implementation inside the agent, the agent discovers available
+tools dynamically through the MCP server.
+
+This creates a clean separation:
+
+* AI agent: reasoning and investigation orchestration.
+* MCP client: tool discovery and invocation.
+* MCP server: protocol handling, validation, and delegation.
+* Python tool layer: Kubernetes API operations.
+* Kubernetes RBAC: final authorization boundary.
+
+### Security Considerations
+
+MCP does not grant additional Kubernetes permissions.
+
+Only explicitly registered read-only tools are exposed.
+
+Input validation and output bounds are enforced by the MCP server.
+
+The Kubernetes ServiceAccount remains restricted through RBAC,
+which prevents unauthorized resource modifications even if
+application-level controls fail.
+
+No arbitrary shell execution or unrestricted `kubectl` access
+is provided.
+
+### Consequences
+
+* Tool definitions are discovered dynamically.
+* The Kubernetes tool implementation remains reusable.
+* The AI agent is independent of Kubernetes API implementation details.
+* MCP introduces an additional process and protocol boundary.
+* The security model continues to rely on Kubernetes RBAC,
+  rather than trusting the AI model or its prompts.
+
+---
+
 ## Security Principle
 
 The core security principle of this project is:
